@@ -1,0 +1,110 @@
+---
+title: "Starfish Sales Analysis"
+author: "Clara Wang"
+date: "Thursday, March 03, 2016"
+output: pdf_document
+---
+
+```{r, include = FALSE}
+## SET UP WORKSPACE
+rm(list = ls())
+wd <- "C:/Users/Clara/Desktop/Starfish Project/Sales Analysis"
+setwd(wd)
+
+#install.packages("RCurl")
+#install.packages("XML")
+
+library(dplyr)
+library(ggplot2)
+library(RCurl)
+library(XML)
+
+df <- read.csv("orders.csv", stringsAsFactors = FALSE)
+
+
+## CLEAN DATA
+orders <- df %>%
+  select(order = Order..,
+         purchase_date = Purchased.On,
+         bill_name = Bill.to.Name,
+         ship_name = Ship.to.Name,
+         base = G.T...Base.,
+         purchase = G.T...Purchased.,
+         status = Status) %>%
+  filter(status != "Closed", status != "Canceled") %>%
+  mutate(year = ifelse(grepl("2016", purchase_date), "2016",
+                       ifelse(grepl("2015", purchase_date), "2015", NA))) %>%
+  mutate(month = ifelse(grepl("^1/", purchase_date), 1,
+                        ifelse(grepl("^2/", purchase_date), 2,
+                               ifelse(grepl("^3/", purchase_date), 3,
+                                            ifelse(grepl("^4/", purchase_date), 4, 0))))) %>%
+  mutate(month = ifelse(grepl("^5/", purchase_date), 5,
+                        ifelse(grepl("^6/", purchase_date), 6,
+                               ifelse(grepl("^7/", purchase_date), 7,
+                                            ifelse(grepl("^8/", purchase_date), 8, month))))) %>%
+  mutate(month = ifelse(grepl("^9/", purchase_date), 9,
+                        ifelse(grepl("^10/", purchase_date), 10,
+                               ifelse(grepl("^11/", purchase_date), 11,
+                                            ifelse(grepl("^12/", purchase_date), 12, month))))) %>%
+  mutate(month_yr = paste0(month, "-", year))
+  
+
+orders$base <- gsub(" ", "", orders$base) 
+orders$base <- gsub("[$]", "", orders$base)
+orders$base <- gsub(",", "", orders$base)
+orders$base <- as.numeric(orders$base)
+
+orders$purchase <- gsub(" ", "", orders$purchase) 
+orders$purchase <- gsub("[$]", "", orders$purchase)
+orders$purchase <- gsub(",", "", orders$purchase)
+orders$purchase <- as.numeric(orders$purchase)
+
+orders$bill_name <- gsub("  ", " ", orders$bill_name)
+orders$ship_name <- gsub("  ", " ", orders$ship_name)
+orders$bill_name <- gsub("^ ", "", orders$bill_name)
+orders$ship_name <- gsub("^ ", "", orders$ship_name)
+
+median_orders <- ggplot(orders) +
+  geom_freqpoly(aes(x = base, color = month_yr), binwidth = 20, xlim = 1000) +
+  facet_grid(.~year)
+median_orders
+
+# monthly <- orders %>%
+#   group_by(month_yr) %>%
+#   mutate(monthly_total = sum(as.numeric(base))) %>%
+#   select(month_yr, monthly_total, year, month) %>%
+#   distinct(monthly_total) %>%
+#   ungroup()
+# 
+# monthlysales <- ggplot(monthly) +
+#   geom_line(aes(x = month_yr, y = monthly_total))
+# monthlysales
+
+df2 <- read.csv("Advocates.csv", stringsAsFactors = FALSE, sep = ",")
+advocates <- df2 %>%
+  select(firstname, lastname, status = Status) %>%
+  mutate(status = ifelse(grepl("[*]", lastname), "AF", "AD"))
+advocates$lastname <- gsub("[*]", "", advocates$lastname)
+advocates$fullname <- paste(advocates$firstname, advocates$lastname)
+advocates$fullname <- gsub("  ", " ", advocates$fullname)
+
+df3 <- read.csv("customer_info.csv", stringsAsFactors = FALSE)
+customers <- df3 %>%
+  select(bill_name = Name,
+         email = Email,
+         group = Group,
+         phone = Telephone,
+         zip = ZIP,
+         country = Country,
+         state_province = State.Province,
+         cust_since = Customer.Since)
+
+main <- full_join(orders, customers, by = "bill_name")
+check <- anti_join(orders, customers, by = "bill_name")
+
+advocates2 <- rename(advocates2, fullname = bill_name)
+advocatesfull <- full_join(advocates, advocates2, by = "fullname")
+
+```
+
+
